@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated outputs (reproducible from code -- not versioned)
+results/
+
+# Report deliverable (compiled separately; not part of the code repo)
+report/
