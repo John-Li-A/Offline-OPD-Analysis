@@ -12,6 +12,13 @@ off exactly instead of arguing about estimator variance.
 
 > 中文版在文末 (Chinese version below).
 
+![From an exact toy POMDP to real LLM on-policy distillation](assets/bridge.png)
+
+*The whole study at a glance: each row maps a piece of the CPU toy (left) onto the
+real multi-turn LLM OPD pipeline (right). The footer separates the **tight**
+correspondences (cache mechanism, χ², importance weights) from what is still
+**stylized** (the single-latent pollution model).*
+
 ## TL;DR — the four findings
 
 1. **Offline OPD collapses under multi-turn shift; online recovers.** On a
@@ -21,12 +28,11 @@ off exactly instead of arguing about estimator variance.
 2. **Generalisation is the *accomplice*, not the rescuer.** The linear
    (generalising, ≈ real-model) student collapses *harder* than the tabular one
    (0.42 < 0.58), because it extrapolates the on-path "commit the evidence peak"
-   behaviour straight into the polluted trap states. The competitor's report has
-   the opposite ordering (tabular fails, generalisation rescues linear).
+   behaviour straight into the polluted trap states.
 3. **The failure is a smooth spectrum, not a caricature.** Sweeping the pollution
    rate traces a continuous curve: as the off-support ratio rises 0.37 → 0.82 the
-   offline/online gap widens 0.13 → 0.68, with `off_support_ratio` as the
-   controlled x-axis. With *no* shift, offline = online (Theorem 3.6).
+   offline/online gap widens 0.13 → 0.68. With *no* shift, offline = online
+   (Theorem 3.6).
 4. **The Theorem 3.5 bound is ~10× vacuous**, and worse: the measured gradient
    gap grows while success stays flat — offline OPD is *successfully optimising
    the wrong objective*, because the feature that would trigger recovery is
@@ -62,19 +68,19 @@ hand-wired secret action.
 | online OPD | 0.960 | 0.789 |
 | online RL | 1.000 | 0.828 |
 
-![baseline](results/fig1_anatomy.png)
+Run `python experiments/plots.py` to regenerate all figures into
+`experiments/results/`.
 
-### Q-v: when does offline fail? (coverage spectrum)
+![Four methods: offline OPD collapses, online recovers](assets/anatomy.png)
 
-![coverage](results/fig2_coverage.png)
+*Q-iv anatomy: offline OPD (linear student) barely clears the SFT floor while
+online OPD/RL climb to the teacher ceiling — the collapse is the gap between the
+flat offline curve and the rest.*
 
-### Gradient layer: the ~10× vacuous bound
+![chi-squared-triggered refresh reaches the online ceiling at ~3% cost](assets/patch.png)
 
-![bound](results/fig3_bound.png)
-
-### Q-vii: χ²-triggered refresh — online performance at ~3 % env cost
-
-![patch](results/fig4_patch.png)
+*Q-vii patch: a χ²-staleness-triggered dataset refresh reaches the online ceiling
+at ~3 % of the per-step environment cost.*
 
 The honest ablation story (verified by a learning-rate sweep, not just the
 headline run): χ²-refresh is **not** simply "more accurate than a periodic
@@ -89,31 +95,31 @@ rates; (3) χ² **self-tunes** its refresh budget with the learning rate.
 ## Repository structure
 
 ```
-opd_toy/
-  env.py        RetrievalQAEnv: enumerable POMDP, undirected-spoof pollution trap
-  policies.py   exact Boltzmann teacher; linear-softmax & tabular students; features
-  exact.py      sampling-free occupancy, OPD gradient, χ², Theorem 3.5 bound terms
-  methods.py    SFT / offline OPD / online OPD / online RL / χ²-refresh patch
-experiments (each is a standalone, kept script):
-  baseline_table.py   Q-iv: 4 methods × 4 metrics, both students
-  coverage_sweep.py   Q-v: success & off-support vs pollution rate
-  patch_ablation.py   Q-vii: χ² vs periodic vs random placement
-  patch_lr_sweep.py   Q-vii control: robustness across learning rates
-  minimal_collision_test.py   isolated proof of the feature-collision mechanism
-  gen_data.py         caches all figure arrays to results/figdata.npz
-  plots.py            draws the four research-grade figures from the cache
+opd_toy/                core package (pip install -e .)
+  env.py                RetrievalQAEnv: enumerable POMDP, undirected-spoof pollution trap
+  policies.py           exact Boltzmann teacher; linear-softmax & tabular students; features
+  exact.py              sampling-free occupancy, OPD gradient, χ², Theorem 3.5 bound terms
+  methods.py            SFT / offline OPD / online OPD / online RL / χ²-refresh patch
+experiments/            standalone reproduction scripts
+  baseline_table.py     Q-iv: 4 methods × 4 metrics, both students
+  coverage_sweep.py     Q-v: success & off-support vs pollution rate
+  patch_ablation.py     Q-vii: χ² vs periodic vs random refresh placement
+  patch_lr_sweep.py     Q-vii control: robustness across learning rates
+  gen_data.py           caches all figure arrays to results/figdata.npz
+  plots.py              draws the research-grade figures from the cache
+  ...                   (further sweeps and controls)
 ```
 
 ## Reproduce
 
 ```bash
-pip install numpy matplotlib
-python baseline_table.py     # Q-iv table
-python coverage_sweep.py     # Q-v spectrum
-python patch_ablation.py     # Q-vii ablation
-python patch_lr_sweep.py     # Q-vii robustness control
-python gen_data.py           # cache figure data -> results/figdata.npz
-python plots.py              # draw four figures from the cache -> results/
+pip install -e .                          # installs opd_toy + numpy, matplotlib
+python experiments/baseline_table.py      # Q-iv table
+python experiments/coverage_sweep.py      # Q-v spectrum
+python experiments/patch_ablation.py      # Q-vii ablation
+python experiments/patch_lr_sweep.py      # Q-vii robustness control
+python experiments/gen_data.py            # cache figure data -> results/figdata.npz
+python experiments/plots.py               # draw figures from the cache -> results/
 ```
 
 Pure NumPy, CPU, runs in minutes. Exact gradients from a fixed init are
@@ -153,10 +159,10 @@ arXiv 2604.13010）在多轮 agentic 场景下**何时、为何**失效，以及
    （0.96–1.00）。
 2. **泛化是「帮凶」而非「救星」。** 线性（会泛化、≈真实模型）学生崩得**比**表格学生
    **更狠**（0.42 < 0.58），因为它把在轨学到的「commit 证据峰」行为直接外推进污染
-   陷阱态。对方报告的 ordering 恰好相反（表格崩、泛化救回线性）。
+   陷阱态。
 3. **失效是连续谱，不是 caricature。** 扫描污染率得到一条连续曲线：off-support 比例
-   从 0.37 升到 0.82 时，离线/在线 gap 从 0.13 拉大到 0.68，off_support_ratio 是受控
-   自变量。**无**漂移时离线 = 在线（Theorem 3.6）。
+   从 0.37 升到 0.82 时，离线/在线 gap 从 0.13 拉大到 0.68。**无**漂移时离线 = 在线
+   （Theorem 3.6）。
 4. **Theorem 3.5 的 bound 约 10× 空泛**，更糟的是：实测梯度差在涨而成功率钉死不动
    ——离线 OPD 在「成功地优化错误目标」，因为能触发恢复的那个特征结构性地拿不到梯度。
 
@@ -172,18 +178,19 @@ arXiv 2604.13010）在多轮 agentic 场景下**何时、为何**失效，以及
 训练污染位；部署噪声让污染常见。唯一可靠的恢复是代价较高的 `reconcile`（权威重读）。
 这就是本研究依托的分布漂移——从噪声鸿沟**涌现**，而非手焊的秘密动作。
 
-## 结果
+## 复现
 
-### Q-iv：四方法 × 四指标（teacher@deploy = 0.973）
+```bash
+pip install -e .                          # 安装 opd_toy + numpy, matplotlib
+python experiments/baseline_table.py      # Q-iv 表
+python experiments/coverage_sweep.py      # Q-v 谱
+python experiments/patch_ablation.py      # Q-vii 消融
+python experiments/patch_lr_sweep.py      # Q-vii 鲁棒性对照
+python experiments/gen_data.py            # 缓存图数据 -> results/figdata.npz
+python experiments/plots.py               # 从缓存画图 -> results/
+```
 
-| 方法 | 线性成功率 | 表格成功率 |
-|---|---|---|
-| SFT | 0.417 | 0.388 |
-| **离线 OPD** | **0.420** | **0.576** |
-| 在线 OPD | 0.960 | 0.789 |
-| 在线 RL | 1.000 | 0.828 |
-
-见 `results/fig1_anatomy.png`、`fig2_coverage.png`、`fig3_bound.png`、`fig4_patch.png`。
+纯 NumPy、CPU、分钟级。固定初值的精确梯度是确定性的，单 seed 数值可复现到浮点精度。
 
 ## 关键设计选择（及原因）
 
@@ -194,17 +201,3 @@ arXiv 2604.13010）在多轮 agentic 场景下**何时、为何**失效，以及
   从而主动误导会泛化的学生——这是让线性学生也崩的机制。
 - **`reconcile_cost` 旋钮。** 调到 0.8，使 teacher 在干净路径上从不 reconcile（从而它
   不出现在参考示范里，离线时污染位权重保持未训练），但在污染态会 reconcile。
-
-## 复现
-
-```bash
-pip install numpy matplotlib
-python baseline_table.py     # Q-iv 表
-python coverage_sweep.py     # Q-v 谱
-python patch_ablation.py     # Q-vii 消融
-python patch_lr_sweep.py     # Q-vii 鲁棒性对照
-python gen_data.py           # 缓存图数据 -> results/figdata.npz
-python plots.py              # 从缓存画四张图 -> results/
-```
-
-纯 NumPy、CPU、分钟级。固定初值的精确梯度是确定性的，单 seed 数值可复现到浮点精度。

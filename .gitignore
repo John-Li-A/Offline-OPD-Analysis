@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Editable-install / build artifacts
+*.egg-info/
+build/
+dist/
+
 # OS
 .DS_Store
 Thumbs.db
@@ -12,3 +17,6 @@ results/
 
 # Report deliverable (compiled separately; not part of the code repo)
 report/
+
+# Local-only scratch / debug scripts (kept on disk, not pushed)
+dev/
